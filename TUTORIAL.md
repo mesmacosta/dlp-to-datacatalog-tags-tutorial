@@ -136,7 +136,7 @@ Generate your OAUTH 2.0 token with `gcloud`:
 TOKEN=$(gcloud auth activate-service-account --key-file=$HOME/credentials/dlp-to-datacatalog-tags-sa.json && gcloud auth print-access-token)
 ```
 
-Call API using CURL. Copy this manually.
+Call API using Curl. Copy this manually.
 ```
 curl -X POST \
   https://dlp.googleapis.com/v2/projects/$PROJECT_ID/inspectTemplates \

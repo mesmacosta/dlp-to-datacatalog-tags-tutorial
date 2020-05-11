@@ -4,24 +4,17 @@ http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.c
 # Data Catalog Util Tutorial
 
 <!-- TODO: analytics id? -->
-<walkthrough-author name="mesmacosta@gmail.com" tutorialName="DLP to Data Catalog Tags Tutorial" repositoryUrl="https://github.com/mesmacosta/dlp-to-datacatalog-tags-tutorial"></walkthrough-author>
+<walkthrough-author name="mesmacosta@gmail.com" tutorialName="Cloud DLP to Data Catalog Tags Tutorial" repositoryUrl="https://github.com/mesmacosta/dlp-to-datacatalog-tags-tutorial"></walkthrough-author>
 
 ## Intro
 
-This tutorial will walk you through the execution of the Data Catalog Util CLI.
+This tutorial will walk you through the execution of the Cloud DLP to Data Catalog Tags Tutorial Tutorial.
 
-## Python CLI
+## Environment
 
-This tutorial uses a Python CLI, if you want to look at the code open:
-<walkthrough-editor-open-file filePath="cloudshell_open/datacatalog-util/src/datacatalog_util/datacatalog_util_cli.py"
-                              text="datacatalog_util_cli.py">
-</walkthrough-editor-open-file>.
+Let's start by setting up your environment. If you already are using Big Query, Data Catalog and Cloud DLP in our project, you may skip the following steps.
 
-Otherwise go to the next step.
-
-## Set Up the Service Account
-
-First, let's set up the Service Account. (You may skip this, if you already have your Service Account)
+## Set Up your Project
 
 Start by setting your project ID. Replace the placeholder to your project.
 ```bash
@@ -33,10 +26,18 @@ Next load it in a environment variable.
 export PROJECT_ID=$(gcloud config get-value project)
 ```
 
-Then create a Service Account.
+## Enable Required APIs
+
 ```bash
-gcloud iam service-accounts create datacatalog-util-sa \
---display-name  "Service Account for Data Catalog Util Tags Export CLI" \
+gcloud services enable datacatalog.googleapis.com bigquery.googleapis.com dlp.googleapis.com --project $PROJECT_ID
+```
+
+## Set up your Service Account
+
+Create a Service Account.
+```bash
+gcloud iam service-accounts create dlp-to-datacatalog-tags-sa \
+--display-name  "Service Account for Cloud DLP 2 Datacatalog workload" \
 --project $PROJECT_ID
 ```
 
@@ -47,124 +48,119 @@ mkdir -p ~/credentials
 
 Next create and download the Service Account Key.
 ```bash
-gcloud iam service-accounts keys create "datacatalog-util-sa.json" \
---iam-account "datacatalog-util-sa@$PROJECT_ID.iam.gserviceaccount.com" \
-&& mv datacatalog-util-sa.json ~/credentials/datacatalog-util-sa.json
+gcloud iam service-accounts keys create "dlp-to-datacatalog-tags-sa.json" \
+--iam-account "dlp-to-datacatalog-tags-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+&& mv dlp-to-datacatalog-tags-sa.json ~/credentials/dlp-to-datacatalog-tags-sa.json
 ```
 
 Next add Data Catalog admin role to the Service Account.
 ```bash
 gcloud projects add-iam-policy-binding $PROJECT_ID \
---member "serviceAccount:datacatalog-util-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+--member "serviceAccount:dlp-to-datacatalog-tags-sa@$PROJECT_ID.iam.gserviceaccount.com" \
 --quiet \
 --project $PROJECT_ID \
 --role "roles/datacatalog.admin"
 ```
 
-Next add Storage admin role to the Service Account.
+Next add Big Query admin role to the Service Account.
 ```bash
 gcloud projects add-iam-policy-binding $PROJECT_ID \
---member "serviceAccount:datacatalog-util-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+--member "serviceAccount:dlp-to-datacatalog-tags-sa@$PROJECT_ID.iam.gserviceaccount.com" \
 --quiet \
 --project $PROJECT_ID \
---role "roles/storage.admin"
+--role "roles/bigquery.admin"
+```
+
+Next add Cloud DLP admin role to the Service Account.
+```bash
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member "serviceAccount:dlp-to-datacatalog-tags-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+--quiet \
+--project $PROJECT_ID \
+--role "roles/dlp.admin"
 ```
 
 Next set up the credentials environment variable.
 ```bash
-export GOOGLE_APPLICATION_CREDENTIALS=~/credentials/datacatalog-util-sa.json
+export GOOGLE_APPLICATION_CREDENTIALS=~/credentials/dlp-to-datacatalog-tags-sa.json
 ```
 
-## Install the Python CLI
+## Create Big Query tables
 
-Install and config the datacatalog-util CLI.
+You can use the open source script [BigQuery Fake PII Creator](https://github.com/mesmacosta/bq-fake-pii-table-creator) to create BigQuery tables with example personally identifiable information (PII).
+
+Install using PIP:
 ```bash
-pip3 install --upgrade datacatalog-util --user
+pip3 install bq-fake-pii-table-creator
 ```
-Next load it to your PATH.
+
+Create the first table:
 ```bash
-export PATH=~/.local/bin:$PATH
+bq-fake-pii-table-creator --project-id $PROJECT_ID --bq-dataset-name dlp_to_datacatalog_tutorial --num-rows 5000
 ```
 
-Next test it out.
+Create a second table:
 ```bash
-datacatalog-util --help
+bq-fake-pii-table-creator --project-id $PROJECT_ID --bq-dataset-name dlp_to_datacatalog_tutorial --num-rows 5000
 ```
 
-## Verify the command groups
-
-Run the Python CLI:
-
+Create a third table with obfuscated column names:
 ```bash
-datacatalog-util --help
+bq-fake-pii-table-creator --project-id $PROJECT_ID --bq-dataset-name dlp_to_datacatalog_tutorial --num-rows 5000 --obfuscate-col-names true
 ```
 
-You should receive the following output:
+## Create the inspection template
+
+Generate your OAUTH 2.0 token with `gcloud`:
 ```
-tag-templates       Tag Templates commands
-tags                Tags commands
-filesets            Filesets commands
-object-storage      Object Storage commands
+TOKEN=$(gcloud auth activate-service-account --key-file=$HOME/credentials/dlp-to-datacatalog-tags-sa.json && gcloud auth print-access-token)
 ```
 
-## Verify the Tag Templates group
-
-```bash
-datacatalog-util tag-templates --help
+Call API using CURL:
 ```
-
-You should receive the following output:
+curl -X POST \
+  https://dlp.googleapis.com/v2/projects/uat-env-1/inspectTemplates \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "inspectTemplate":{
+    "displayName":"DLP 2 Datacatalog inspection Template",
+    "description":"Scans Sensitive Data on Data Sources",
+    "inspectConfig":{
+      "infoTypes":[
+        {
+          "name":"CREDIT_CARD_NUMBER"
+        },
+        {
+          "name":"EMAIL_ADDRESS"
+        },
+        {
+          "name":"FIRST_NAME"
+        },
+        {
+          "name":"IP_ADDRESS"
+        },
+        {
+          "name":"MAC_ADDRESS"
+        },
+        {
+          "name":"PHONE_NUMBER"
+        },
+        {
+          "name":"PASSPORT"
+        }
+      ],
+      "minLikelihood":"POSSIBLE",
+      "includeQuote":false
+    }
+  },
+  "templateId": "dlp-to-datacatalog-template"
+}'
 ```
-create              Create Tag Templates from CSV
-delete              Delete Tag Templates from CSV
-export              Export Tag Templates to CSV
-```
-
-## Verify the Tags group
-
-```bash
-datacatalog-util tags --help
-```
-
-You should receive the following output:
-```
-create              Create Tags from CSV
-delete              Delete Tags from CSV
-export              Export Tags to CSV, creates one file for each
-                    teamplate
-```
-
-## Verify the Filesets group
-
-```bash
-datacatalog-util filesets --help
-```
-
-You should receive the following output:
-```
-create              Create Tag Templates from CSV
-enrich              Enrich GCS filesets with Tags
-clean-up-templates-and-tags
-                    Clean up the Fileset Enhancer Template and Tags From
-                    the Fileset Entries
-delete              Delete Filesets Entry Groups and Entries from CSV
-export              Export Filesets to CSV
-```
-
-## Verify the Object Storage group
-
-```bash
-datacatalog-util object-storage --help
-```
-
-You should receive the following output:
-```
-sync-entries        Synchronize Entries
-delete-entries      Delete Entries
-```
+We set up a pre-defined list of DLP Info Types in the API call, you may change it or add new types using as reference: [Built-in Info types](https://cloud.google.com/dlp/docs/infotypes-reference) or by creating custom ones.
 
 ## Congratulations!
 
 <walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>
 
-You've successfully finished the Data Catalog Util Tutorial. For more details on each command, please look at each command tutorial on the README.md file.
+You've successfully finished the Cloud DLP to Data Catalog Tags Tutorial.

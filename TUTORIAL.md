@@ -159,6 +159,88 @@ curl -X POST \
 ```
 We set up a pre-defined list of DLP Info Types in the API call, you may change it or add new types using as reference: [Built-in Info types](https://cloud.google.com/dlp/docs/infotypes-reference) or by creating custom ones.
 
+## Get the script code
+
+The script code is available from
+[this GitHub repository](https://github.com/GoogleCloudPlatform/community/tree/master/tutorials/dlp-to-datacatalog-tags).
+
+Clone the community github:
+```bash
+git clone https://github.com/GoogleCloudPlatform/community
+```
+
+Next go to DLP to Datacatalog Tags tutorial folder:
+```bash
+cd tutorials/dlp-to-datacatalog-tags
+```
+
+Verify that you are at the `pom.xml` folder:
+```bash
+ls -l
+```
+
+## Install the BigQuery JDBC driver
+
+Run the following commands to download the latest Simba BigQuery driver, extract it, install it with Maven, and delete the 
+temporary `lib` files:
+
+```bash
+curl -o SimbaJDBCDriverforGoogleBigQuery.zip https://storage.googleapis.com/simba-bq-release/jdbc/SimbaJDBCDriverforGoogleBigQuery42_1.2.2.1004.zip && \
+unzip -qu SimbaJDBCDriverforGoogleBigQuery.zip -d lib && \
+mvn install:install-file  \
+-Dfile=lib/GoogleBigQueryJDBC42.jar \
+-DgroupId=com.simba \
+-DartifactId=simba-jdbc \
+-Dversion=1.0 \
+-Dpackaging=jar \
+-DgeneratePom=true && \
+rm -rf lib
+```
+
+## Compile the script
+
+```bash
+mvn clean package -DskipTests
+```
+
+## Execute the script
+
+For details on the CLI args, please look at the Command line parameters table on the:
+[community tutorial](https://cloud.google.com/community/tutorials/dlp-to-datacatalog-tags)
+
+Run the script:
+```
+java -cp target/dlp-to-datacatalog-tags-0.1-jar-with-dependencies.jar com.example.dlp.DlpDataCatalogTagsTutorial \
+-dbType "bigquery" \
+-limitMax 1000 \
+-dbName dlp_to_datacatalog_tutorial \
+-projectId $PROJECT_ID \
+-threadPoolSize 5 \
+-inspectTemplate "projects/$PROJECT_ID/inspectTemplates/dlp-to-datacatalog-template" \
+-minThreshold 100
+```
+
+## Cleaning up
+
+The easiest way to avoid incurring charges to your Google Cloud account for the resources used in this tutorial is to delete 
+the project you created. Otherwise delete the Big Query Dataset you created earlier.
+
+To delete the project, follow the steps below:
+
+1.  In the Cloud Console, [go to the Projects page](https://console.cloud.google.com/iam-admin/projects).
+
+1.  In the project list, select the project that you want to delete and click **Delete project**.
+
+    ![N|Solid](https://storage.googleapis.com/gcp-community/tutorials/partial-redaction-with-dlp-and-gcf/img_delete_project.png)
+    
+1.  In the dialog, type the project ID, and then click **Shut down** to delete the project.
+
+## What's next
+
+- Learn about [Cloud Data Loss Prevention](https://cloud.google.com/dlp).
+- Learn about [Data Catalog](https://cloud.google.com/data-catalog).
+- Try out other Google Cloud features. Have a look at our [tutorials](https://cloud.google.com/docs/tutorials).
+
 ## Congratulations!
 
 <walkthrough-conclusion-trophy></walkthrough-conclusion-trophy>

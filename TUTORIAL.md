@@ -8,7 +8,7 @@ http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.c
 
 ## Intro
 
-This tutorial will walk you through the execution of the Cloud DLP to Data Catalog Tags Tutorial Tutorial.
+This tutorial will walk you through the execution of the Cloud DLP to Data Catalog Tags Tutorial.
 
 ## Environment
 

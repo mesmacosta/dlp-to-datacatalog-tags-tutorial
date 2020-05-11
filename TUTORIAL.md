@@ -1,7 +1,7 @@
 <!---
 Note: This tutorial is meant for Google Cloud Shell, and can be opened by going to
 http://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/open?git_repo=https://github.com/mesmacosta/dlp-to-datacatalog-tags-tutorial&tutorial=TUTORIAL.md)--->
-# Data Catalog Util Tutorial
+# Cloud DLP to Data Catalog Tags Tutorial
 
 <!-- TODO: analytics id? -->
 <walkthrough-author name="mesmacosta@gmail.com" tutorialName="Cloud DLP to Data Catalog Tags Tutorial" repositoryUrl="https://github.com/mesmacosta/dlp-to-datacatalog-tags-tutorial"></walkthrough-author>
@@ -80,6 +80,16 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 --role "roles/dlp.admin"
 ```
 
+Next add Storage admin role to the Service Account. 
+This is needed to use cloud storage to create Big Query tables.
+```bash
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member "serviceAccount:dlp-to-datacatalog-tags-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+--quiet \
+--project $PROJECT_ID \
+--role "roles/storage.admin"
+```
+
 Next set up the credentials environment variable.
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=~/credentials/dlp-to-datacatalog-tags-sa.json
@@ -91,7 +101,17 @@ You can use the open source script [BigQuery Fake PII Creator](https://github.co
 
 Install using PIP:
 ```bash
-pip3 install bq-fake-pii-table-creator
+pip3 install bq-fake-pii-table-creator --user
+```
+
+Next load it to your PATH.
+```bash
+export PATH=~/.local/bin:$PATH
+```
+
+Next test it out.
+```bash
+bq-fake-pii-table-creator --help
 ```
 
 Create the first table:
@@ -112,14 +132,14 @@ bq-fake-pii-table-creator --project-id $PROJECT_ID --bq-dataset-name dlp_to_data
 ## Create the inspection template
 
 Generate your OAUTH 2.0 token with `gcloud`:
-```
+```bash
 TOKEN=$(gcloud auth activate-service-account --key-file=$HOME/credentials/dlp-to-datacatalog-tags-sa.json && gcloud auth print-access-token)
 ```
 
-Call API using CURL:
+Call API using CURL. Copy this manually.
 ```
 curl -X POST \
-  https://dlp.googleapis.com/v2/projects/uat-env-1/inspectTemplates \
+  https://dlp.googleapis.com/v2/projects/$PROJECT_ID/inspectTemplates \
   -H "Authorization: Bearer ${TOKEN}" \
   -H 'Content-Type: application/json' \
   -d '{
@@ -171,7 +191,7 @@ git clone https://github.com/GoogleCloudPlatform/community
 
 Next go to DLP to Datacatalog Tags tutorial folder:
 ```bash
-cd tutorials/dlp-to-datacatalog-tags
+cd community/tutorials/dlp-to-datacatalog-tags
 ```
 
 Verify that you are at the `pom.xml` folder:
@@ -209,7 +229,7 @@ For details on the CLI args, please look at the Command line parameters table on
 [community tutorial](https://cloud.google.com/community/tutorials/dlp-to-datacatalog-tags)
 
 Run the script:
-```
+```bash
 java -cp target/dlp-to-datacatalog-tags-0.1-jar-with-dependencies.jar com.example.dlp.DlpDataCatalogTagsTutorial \
 -dbType "bigquery" \
 -limitMax 1000 \
@@ -219,6 +239,17 @@ java -cp target/dlp-to-datacatalog-tags-0.1-jar-with-dependencies.jar com.exampl
 -inspectTemplate "projects/$PROJECT_ID/inspectTemplates/dlp-to-datacatalog-template" \
 -minThreshold 100
 ```
+
+## Check the results of the script
+
+After the script finishes, you can go to [Data Catalog](https://console.cloud.google.com/datacatalog) and search for sensitive
+data:
+
+![N|Solid](https://storage.googleapis.com/gcp-community/tutorials/dlp-to-datacatalog-tags/searchUI.png)
+
+By clicking each table, you can see which columns were marked as sensitive:
+
+![N|Solid](https://storage.googleapis.com/gcp-community/tutorials/dlp-to-datacatalog-tags/taggedTable.png)
 
 ## Cleaning up
 
